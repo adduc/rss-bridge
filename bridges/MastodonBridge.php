@@ -38,13 +38,19 @@ class MastodonBridge extends BridgeAbstract
         'norep' => [
             'name' => 'Without replies',
             'type' => 'checkbox',
-            'title' => 'Only return statuses that are not replies, as determined by relations (not mentions).'
+            'title' => 'Exclude replies from returned statuses, as determined by relations (not mentions).'
         ],
         'noboost' => [
             'name' => 'Without boosts',
             'required' => false,
             'type' => 'checkbox',
             'title' => 'Hide boosts. Note that RSS-Bridge will fetch the original status from other federated instances.'
+        ],
+        'noregular' => [
+            'name' => 'Without regular status',
+            'required' => false,
+            'type' => 'checkbox',
+            'title' => 'Exclude regular statuses, as determined by relations (not mentions).'
         ],
         'signaturetype' => [
             'type' => 'list',
@@ -60,6 +66,10 @@ class MastodonBridge extends BridgeAbstract
 
     public function collectData()
     {
+        if ($this->getInput('norep') && $this->getInput('noboost') && $this->getInput('noregular')) {
+            throw new \Exception('replies, boosts, or regular statuses must be allowed');
+        }
+
         $url = $this->getURI() . '/outbox?page=true';
         $content = $this->fetchAP($url);
         if ($content['id'] !== $url) {
@@ -106,6 +116,9 @@ class MastodonBridge extends BridgeAbstract
                 break;
             case 'Create': // posts
                 if ($this->getInput('norep') && isset($content['object']['inReplyTo'])) {
+                    return null;
+                }
+                if ($this->getInput('noregular') && !isset($content['object']['inReplyTo'])) {
                     return null;
                 }
                 $item['author'] = $this->getInput('canusername');
